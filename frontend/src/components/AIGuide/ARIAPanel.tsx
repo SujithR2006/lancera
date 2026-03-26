@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSurgeryStore, STEP_NAMES } from '../../store/useSurgeryStore';
+import { TARGET_ZONES } from '../../store/targetZones';
 
 export default function ARIAPanel() {
   const currentStep = useSurgeryStore((s) => s.currentStep);
@@ -9,7 +10,15 @@ export default function ARIAPanel() {
   const sessionId = useSurgeryStore((s) => s.sessionId);
   const nextStep = useSurgeryStore((s) => s.nextStep);
   const prevStep = useSurgeryStore((s) => s.prevStep);
+  const stepActionsCompleted = useSurgeryStore((s) => s.stepActionsCompleted);
+  
+  // Simplification: only require up to 2 successful actions per step to proceed
+  const requiredActions = Math.min(2, TARGET_ZONES[currentStep]?.length || 0);
+  const isReady = requiredActions === 0 || stepActionsCompleted >= requiredActions;
+  
   const [displayText, setDisplayText] = useState('');
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  
   const typewriterRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const charRef = useRef(0);
 
@@ -34,8 +43,49 @@ export default function ARIAPanel() {
     };
   }, [ariaText, isLoadingAria]);
 
+  // Voice AI effect
+  useEffect(() => {
+    if (!voiceEnabled || isLoadingAria || !ariaText) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+    
+    // Stop any currently playing audio
+    window.speechSynthesis.cancel();
+    
+    // Combine primary instruction and warning text for the speech API
+    const fullText = ariaWarning ? `${ariaText} — Warning. ${ariaWarning}` : ariaText;
+    const utterance = new SpeechSynthesisUtterance(fullText);
+    
+    // Configure voice properties slightly mimicking an AI
+    utterance.rate = 1.05;
+    utterance.pitch = 0.95;
+    
+    const setVoiceAndSpeak = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.name.includes('Google UK English') || v.name.includes('Microsoft Mark') || v.name.includes('Google US English'));
+      if (preferred) utterance.voice = preferred;
+      window.speechSynthesis.speak(utterance);
+    };
+
+    if (window.speechSynthesis.getVoices().length > 0) {
+      setVoiceAndSpeak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+    }
+    
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [ariaText, ariaWarning, isLoadingAria, voiceEnabled]);
+
   const handleNext = () => {
-    if (sessionId) nextStep(sessionId);
+    if (isReady && sessionId) nextStep(sessionId);
+  };
+
+  const toggleVoice = () => {
+    if (voiceEnabled) window.speechSynthesis.cancel();
+    setVoiceEnabled(!voiceEnabled);
   };
 
   return (
@@ -87,6 +137,43 @@ export default function ARIAPanel() {
             ASSISTED REALITY INTELLIGENCE FOR ANATOMY
           </div>
         </div>
+
+        {/* Action Counter */}
+        {requiredActions > 0 && (
+          <div style={{
+            background: isReady ? 'rgba(0,245,212,0.1)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${isReady ? 'var(--cyan)' : 'var(--border2)'}`,
+            padding: '4px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center',
+            minWidth: 100, borderRadius: 4, transition: 'all 0.3s',
+          }}>
+            <div style={{ fontFamily: 'Orbitron, monospace', fontSize: 8, color: 'var(--muted)', letterSpacing: 1 }}>
+              PRECISION ACTIONS
+            </div>
+            <div style={{ 
+              fontFamily: 'Orbitron, monospace', fontSize: 13, 
+              color: isReady ? 'var(--cyan)' : 'white',
+              fontWeight: 700, margin: '2px 0'
+            }}>
+              {stepActionsCompleted} / {requiredActions}
+            </div>
+          </div>
+        )}
+
+        {/* Voice Toggle */}
+        <button 
+          onClick={toggleVoice}
+          title={voiceEnabled ? "Mute ARIA Voice" : "Enable ARIA Voice"}
+          style={{
+            background: 'transparent', border: `1px solid ${voiceEnabled ? 'var(--cyan)' : 'var(--muted2)'}`, 
+            color: voiceEnabled ? 'var(--cyan)' : 'var(--muted)',
+            padding: '4px 8px', borderRadius: 4, cursor: 'pointer',
+            fontFamily: 'Orbitron, monospace', fontSize: 10,
+            display: 'flex', alignItems: 'center', gap: 6,
+            transition: 'all 0.2s',
+          }}
+        >
+          {voiceEnabled ? '🔊 VOICE ON' : '🔈 VOICE OFF'}
+        </button>
       </div>
 
       {/* Body */}
@@ -164,10 +251,18 @@ export default function ARIAPanel() {
         </button>
         <button
           onClick={handleNext}
-          className="btn-cyan"
-          style={{ padding: '8px 20px', flex: 2 }}
+          disabled={!isReady}
+          className={isReady ? "btn-cyan" : "btn-outline-cyan"}
+          style={{ 
+            padding: '8px 20px', flex: 2, 
+            opacity: isReady ? 1 : 0.5,
+            boxShadow: isReady ? '0 0 20px var(--cyan)' : 'none',
+            border: isReady ? 'none' : '1px solid var(--border2)',
+            cursor: isReady ? 'pointer' : 'not-allowed',
+            transition: 'all 0.3s ease'
+          }}
         >
-          {currentStep >= 9 ? 'COMPLETE ✓' : 'NEXT STEP ►'}
+          {currentStep >= 9 ? 'COMPLETE ✓' : isReady ? 'NEXT STEP ►' : 'AWAITING ACTIONS...'}
         </button>
       </div>
     </div>

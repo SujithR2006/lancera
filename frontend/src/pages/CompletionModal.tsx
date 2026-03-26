@@ -41,6 +41,13 @@ export default function CompletionModal() {
     { label: 'PERFORMANCE TIER', value: performanceLabel },
   ];
 
+  const getSurgeonFeedback = () => {
+    if (score >= 90) return "Exceptional technique. Your precision during the grafting phase was textbook. You demonstrated the steady hand required for elite cardiac surgery. Keep this level of focus.";
+    if (score >= 70) return "Solid performance. You've mastered the fundamentals of the CABG procedure. There were minor inconsistencies in your graft placement, but nothing that would compromise patient outcome. Refine your stabilizers.";
+    if (score >= 50) return "Adequate, but you're cutting it close. Your speed is fine, but your accuracy needs more time in the wet lab. In a real OR, these margins for error don't exist. Re-run the simulation focusing on instrument control.";
+    return "Critical failure in surgical technique. Your accuracy was below acceptable standards, posing a direct risk to the patient. You must master the basic sternotomy and cannulation before attempting the grafts again. Return to basic training.";
+  };
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9000,
@@ -114,6 +121,28 @@ export default function CompletionModal() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Surgeon Feedback Section */}
+        <div style={{
+          marginBottom: 36, padding: '20px',
+          background: 'rgba(0,245,212,0.03)', border: '1px solid rgba(0,245,212,0.1)',
+          position: 'relative',
+        }}>
+          <div style={{
+            fontFamily: 'Orbitron, monospace', fontSize: 9, color: 'var(--cyan)',
+            letterSpacing: 2, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8
+          }}>
+            <div style={{ width: 6, height: 6, background: 'var(--cyan)', borderRadius: '50%' }} />
+            SURGEON CONSULTATION // REF: CHIEF_OF_SURGERY
+          </div>
+          <div style={{
+            fontFamily: 'Share Tech Mono, monospace', fontSize: 13,
+            color: '#ccd6f6', lineHeight: 1.6, fontStyle: 'italic',
+            letterSpacing: 0.5,
+          }}>
+            "{getSurgeonFeedback()}"
+          </div>
         </div>
 
         {/* Buttons */}

@@ -8,6 +8,13 @@ export interface GraftPoint {
   stepIndex: number;
 }
 
+export interface TargetZone {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+}
+
 export interface Vitals {
   hr: number;
   bp: string;
@@ -60,16 +67,26 @@ interface SurgeryState {
   ariaWarning: string | null;
   isLoadingAria: boolean;
   score: number;
+  health: number;
+  stepActionsCompleted: number;
   modelAvailable: boolean;
+  selectedTool: string | null;
   activeInstruments: string[];
   showHistory: boolean;
   showCompletion: boolean;
+  vrMode: boolean;
+  heartRotation: [number, number, number];
+  isRotating: boolean;
 
   // Actions
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
   setSession: (sessionId: string) => void;
   setModelAvailable: (val: boolean) => void;
+  setSelectedTool: (tool: string | null) => void;
+  applyAction: (success: boolean) => void;
+
+
   updateVitals: (vitals: Partial<Vitals>) => void;
   setAriaText: (text: string, warning?: string | null) => void;
   setAriaLoading: (loading: boolean) => void;
@@ -78,6 +95,9 @@ interface SurgeryState {
   addGraft: (point: { x: number; y: number; z: number }, sessionId: string) => Promise<void>;
   setShowHistory: (show: boolean) => void;
   setShowCompletion: (show: boolean) => void;
+  toggleVRMode: () => void;
+  setHeartRotation: (rot: [number, number, number]) => void;
+  toggleRotation: () => void;
   logout: () => void;
 }
 
@@ -93,15 +113,38 @@ export const useSurgeryStore = create<SurgeryState>((set, get) => ({
   ariaWarning: null,
   isLoadingAria: false,
   score: 0,
+  health: 100,
+  stepActionsCompleted: 0,
   modelAvailable: false,
+  selectedTool: null,
   activeInstruments: STEP_INSTRUMENTS[0] || [],
   showHistory: false,
   showCompletion: false,
+  vrMode: false,
+  heartRotation: [0, 0, 0],
+  isRotating: true,
 
   setUser: (user) => set({ user }),
   setToken: (token) => set({ token }),
   setSession: (sessionId) => set({ sessionId }),
   setModelAvailable: (val) => set({ modelAvailable: val }),
+  setSelectedTool: (tool) => set({ selectedTool: tool }),
+
+  applyAction: (success) => set((state) => {
+    if (success) {
+      return { 
+        score: Math.min(100, state.score + 2),
+        stepActionsCompleted: state.stepActionsCompleted + 1
+      };
+    } else {
+      return { 
+        health: Math.max(0, state.health - 15),
+        score: Math.max(0, state.score - 5)
+      };
+    }
+  }),
+
+
 
   updateVitals: (vitals) =>
     set((state) => ({ vitals: { ...state.vitals, ...vitals } })),
@@ -130,9 +173,12 @@ export const useSurgeryStore = create<SurgeryState>((set, get) => ({
       currentStep: newStep,
       completedSteps: newCompleted,
       score: newScore,
+      selectedTool: null,
+      stepActionsCompleted: 0, // Reset for new step
       activeInstruments: STEP_INSTRUMENTS[newStep] || [],
       isLoadingAria: true,
     });
+
 
     // Update session step in backend
     try {
@@ -183,6 +229,9 @@ export const useSurgeryStore = create<SurgeryState>((set, get) => ({
 
   setShowHistory: (show) => set({ showHistory: show }),
   setShowCompletion: (show) => set({ showCompletion: show }),
+  toggleVRMode: () => set((state) => ({ vrMode: !state.vrMode })),
+  setHeartRotation: (rot) => set({ heartRotation: rot }),
+  toggleRotation: () => set((state) => ({ isRotating: !state.isRotating })),
 
   logout: () => {
     localStorage.removeItem('lancera_token');

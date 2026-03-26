@@ -116,6 +116,8 @@ const INSTRUMENTS = [
 
 export default function InstrumentsPanel() {
   const activeInstruments = useSurgeryStore((s) => s.activeInstruments);
+  const selectedTool = useSurgeryStore((s) => s.selectedTool);
+  const setSelectedTool = useSurgeryStore((s) => s.setSelectedTool);
 
   return (
     <div style={{
@@ -156,17 +158,25 @@ export default function InstrumentsPanel() {
       }}>
         {INSTRUMENTS.map((inst) => {
           const isActive = activeInstruments.includes(inst.name);
+          const isSelected = selectedTool === inst.name;
+
           return (
-            <div key={inst.name} style={{
-              width: '100%', height: 100,
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 6,
-              border: `1px solid ${isActive ? 'var(--cyan)' : 'var(--border2)'}`,
-              background: isActive ? 'var(--cyan-glow)' : 'var(--panel2)',
-              boxShadow: isActive ? '0 0 12px rgba(0,245,212,0.2)' : 'none',
-              transition: 'all 0.3s ease',
-              cursor: 'default',
-            }}>
+            <div 
+              key={inst.name} 
+              onClick={() => isActive && setSelectedTool(isSelected ? null : inst.name)}
+              style={{
+                width: '100%', height: 100,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 6,
+                border: `1px solid ${isSelected ? 'var(--cyan)' : (isActive ? 'var(--border2)' : 'var(--panel2)')}`,
+                background: isSelected ? 'rgba(0,245,212,0.15)' : (isActive ? 'var(--cyan-glow)' : 'var(--panel2)'),
+                boxShadow: isSelected ? '0 0 20px rgba(0,245,212,0.3)' : 'none',
+                transition: 'all 0.3s ease',
+                cursor: isActive ? 'pointer' : 'not-allowed',
+                opacity: isActive ? 1 : 0.4,
+                position: 'relative'
+              }}
+            >
               <div style={{
                 color: isActive ? 'var(--cyan)' : 'var(--muted)',
                 stroke: isActive ? 'var(--cyan)' : 'var(--muted)',

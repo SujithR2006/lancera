@@ -16,7 +16,7 @@ export default function Dashboard() {
   const {
     setUser, setToken, setSession, setModelAvailable,
     updateVitals, setAriaText, setAriaLoading,
-    showHistory, setShowHistory, showCompletion, sessionId,
+    showHistory, setShowHistory, showCompletion, sessionId, vrMode
   } = useSurgeryStore();
   const [dbOffline, setDbOffline] = useState(false);
   const [initError, setInitError] = useState('');
@@ -55,8 +55,8 @@ export default function Dashboard() {
         setModelAvailable(false);
       }
 
-      // 4. Socket.io
-      socket = io('http://localhost:5000', { transports: ['websocket', 'polling'] });
+      // 4. Socket.io (Uses relative path to work with Vite proxy)
+      socket = io({ transports: ['websocket', 'polling'] });
       socket.on('vitals_update', (vitals) => updateVitals(vitals));
       socket.on('connect_error', () => {});
 
@@ -81,12 +81,82 @@ export default function Dashboard() {
     return () => { socket?.disconnect(); };
   }, []);
 
+  const renderUI = (isLeftEye: boolean) => (
+    <div style={{
+      width: vrMode ? '50vw' : '100vw', 
+      height: '100vh', 
+      overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+      background: 'var(--bg)', position: 'relative',
+      minWidth: vrMode ? 500 : 1280, // Allow smaller width for VR split
+      borderRight: vrMode && isLeftEye ? '2px solid black' : 'none',
+    }}>
+      {/* VR Lens Overlay (Decorative) */}
+      {vrMode && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 1000, pointerEvents: 'none',
+          background: 'radial-gradient(circle, transparent 40%, rgba(0,0,0,0.98) 100%)',
+          boxShadow: 'inset 0 0 150px 80px rgba(0,0,0,1)',
+        }} />
+      )}
+
+      {/* Internal Content Wrapper - Scaled in VR for better fit */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        transform: vrMode ? 'scale(0.7)' : 'none',
+        transformOrigin: 'center center',
+        width: vrMode ? '142.8%' : '100%', // Compensation for 0.7 scale
+        height: vrMode ? '142.8%' : '100%',
+        position: vrMode ? 'absolute' : 'relative',
+        top: vrMode ? '50%' : 0,
+        left: vrMode ? '50%' : 0,
+        marginLeft: vrMode ? '-71.4%' : 0,
+        marginTop: vrMode ? '-71.4%' : 0,
+      }}>
+        {/* HUD */}
+        <TopHUD />
+
+        {/* Main 3-column layout */}
+        <div style={{
+          flex: 1, display: 'flex', overflow: 'hidden',
+          marginTop: dbOffline ? 28 : 0,
+        }}>
+          <StepsTracker />
+
+          {/* Center: 3D + ARIA */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <HeartViewer />
+            </div>
+            <ARIAPanel />
+          </div>
+
+          <InstrumentsPanel />
+        </div>
+      </div>
+
+      {/* History button - Only show on single view to avoid clutter in VR */}
+      {!vrMode && (
+        <button
+          onClick={() => setShowHistory(true)}
+          style={{
+            position: 'absolute', top: 70, right: 290, zIndex: 100,
+            background: 'var(--panel)', border: '1px solid var(--border2)',
+            color: 'var(--muted)', fontFamily: 'Orbitron, monospace', fontSize: 8,
+            padding: '6px 10px', cursor: 'pointer', letterSpacing: 1,
+          }}
+        >
+          ⊞ HISTORY
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div style={{
       width: '100vw', height: '100vh', overflow: 'hidden',
-      display: 'flex', flexDirection: 'column',
-      background: 'var(--bg)', position: 'relative',
-      minWidth: 1280,
+      background: 'black',
+      display: 'flex',
     }}>
       {/* Too small overlay */}
       <div style={{
@@ -97,9 +167,6 @@ export default function Dashboard() {
       }} id="too-small-overlay">
         <div style={{ fontFamily: 'Orbitron, monospace', fontSize: 16, color: 'var(--red)' }}>
           ⚠ DISPLAY TOO SMALL
-        </div>
-        <div style={{ fontFamily: 'Share Tech Mono, monospace', fontSize: 12, color: 'var(--muted)' }}>
-          Minimum resolution: 1280px × 720px
         </div>
       </div>
 
@@ -112,49 +179,16 @@ export default function Dashboard() {
           fontFamily: 'Share Tech Mono, monospace', fontSize: 11,
           color: 'var(--red)', textAlign: 'center', letterSpacing: 1,
         }}>
-          ⚠ DATABASE OFFLINE — Running in simulation mode. Session data will not be persisted.
+          ⚠ DATABASE OFFLINE — Running in simulation mode.
         </div>
       )}
 
-      {/* HUD */}
-      <TopHUD />
+      {/* Render eyes */}
+      {renderUI(true)}
+      {vrMode && renderUI(false)}
 
-      {/* Main 3-column layout */}
-      <div style={{
-        flex: 1, display: 'flex', overflow: 'hidden',
-        marginTop: dbOffline ? 28 : 0,
-      }}>
-        <StepsTracker />
-
-        {/* Center: 3D + ARIA */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <HeartViewer />
-          </div>
-          <ARIAPanel />
-        </div>
-
-        <InstrumentsPanel />
-      </div>
-
-      {/* History button */}
-      <button
-        onClick={() => setShowHistory(true)}
-        style={{
-          position: 'fixed', top: 70, right: 290, zIndex: 100,
-          background: 'var(--panel)', border: '1px solid var(--border2)',
-          color: 'var(--muted)', fontFamily: 'Orbitron, monospace', fontSize: 8,
-          padding: '6px 10px', cursor: 'pointer', letterSpacing: 1,
-        }}
-        title="View session history"
-      >
-        ⊞ HISTORY
-      </button>
-
-      {/* Session History */}
+      {/* Global Overlays */}
       {showHistory && <SessionHistory />}
-
-      {/* Completion Modal */}
       {showCompletion && <CompletionModal />}
     </div>
   );

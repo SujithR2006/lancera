@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const SurgeryLog = require('../models/SurgeryLog');
+const supabase = require('../config/supabase');
 
 // Fallback guidance per step if Anthropic fails
 const FALLBACK_GUIDANCE = [
@@ -65,15 +65,22 @@ router.post('/guide', authMiddleware, async (req, res) => {
       warning = parts[1].trim();
     }
 
-    // Log to DB
+    // Log to DB via Supabase
     if (sessionId) {
       try {
-        await SurgeryLog.findOneAndUpdate(
-          { sessionId, stepIndex },
-          { aiResponse: text, timestamp: new Date() },
-          { upsert: true }
-        );
-      } catch (_) {}
+        // Upsert behavior using onConflict on 'session_id, step_index' if it was a unique constraint,
+        // but since we might not have a unique constraint, we can just insert or update latest log.
+        await supabase.from('surgery_logs').insert([{
+           session_id: sessionId,
+           user_id: req.user.id,
+           step_index: stepIndex,
+           step_name: stepName || STEP_NAMES[stepIndex],
+           action: action || 'ai_guidance_request',
+           ai_response: text
+        }]);
+      } catch (logError) {
+        console.error('Failed to log AI response to Supabase', logError);
+      }
     }
 
     res.json({ guidance, warning });

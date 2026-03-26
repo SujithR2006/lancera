@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useSurgeryStore, STEP_NAMES } from '../../store/useSurgeryStore';
+import { TARGET_ZONES } from '../../store/targetZones';
 
 const STEP_INSTRUMENTS_LABELS: Record<number, string[]> = {
   0: [], 1: ['CANNULA'], 2: ['SCALPEL', 'BONE SAW', 'RETRACTOR'],
@@ -149,20 +150,38 @@ export default function StepsTracker() {
                     {isActive ? 'ACTIVE // IN PROGRESS' : isCompleted ? 'COMPLETED ✓' : 'PENDING'}
                   </div>
 
-                  {/* Instrument pills */}
-                  {instruments.length > 0 && (isActive || isCompleted) && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {instruments.map((inst) => (
-                        <span key={inst} style={{
-                          fontFamily: 'Share Tech Mono, monospace', fontSize: 8,
-                          color: isActive ? 'var(--cyan)' : 'var(--muted)',
-                          border: `1px solid ${isActive ? 'rgba(0,245,212,0.3)' : 'var(--border2)'}`,
-                          padding: '1px 6px',
-                          letterSpacing: 0.5,
-                        }}>
-                          {inst}
-                        </span>
-                      ))}
+                  {/* Instrument pills & Action Dots */}
+                  {(isActive || isCompleted) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {instruments.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {instruments.map((inst) => (
+                            <span key={inst} style={{
+                              fontFamily: 'Share Tech Mono, monospace', fontSize: 8,
+                              color: isActive ? 'var(--cyan)' : 'var(--muted)',
+                              border: `1px solid ${isActive ? 'rgba(0,245,212,0.3)' : 'var(--border2)'}`,
+                              padding: '1px 6px',
+                              letterSpacing: 0.5,
+                            }}>
+                              {inst}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {isActive && (
+                        <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                          {Array.from({ length: (TARGET_ZONES[idx] || []).length }).map((_, i) => (
+                            <div key={i} style={{
+                              width: 6, height: 6, borderRadius: '50%',
+                              background: i < useSurgeryStore.getState().stepActionsCompleted ? 'var(--cyan)' : 'transparent',
+                              border: '1px solid var(--cyan)',
+                              boxShadow: i < useSurgeryStore.getState().stepActionsCompleted ? '0 0 8px var(--cyan)' : 'none',
+                              transition: 'all 0.3s ease'
+                            }} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
